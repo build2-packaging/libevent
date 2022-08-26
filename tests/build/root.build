@@ -1,15 +1,9 @@
-cxx.std = latest
+#c.std = latest
 
-using cxx
+using c
 
-hxx{*}: extension = hxx
-ixx{*}: extension = ixx
-txx{*}: extension = txx
-cxx{*}: extension = cxx
-
-# Assume headers are importable unless stated otherwise.
-#
-hxx{*}: cxx.importable = true
+h{*}: extension = h
+c{*}: extension = c
 
 # Every exe{} in this subproject is by default a test.
 #
@@ -17,4 +11,4 @@ exe{*}: test = true
 
 # The test target for cross-testing (running tests under Wine, etc).
 #
-test.target = $cxx.target
+test.target = $c.target
