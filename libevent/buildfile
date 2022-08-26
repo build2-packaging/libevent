@@ -2,9 +2,127 @@ intf_libs = # Interface dependencies.
 impl_libs = # Implementation dependencies.
 #import xxxx_libs += libhello%lib{hello}
 
+using autoconf
+
+# Extract values from the upstream CMakeLists.txt. Parse the file only once,
+# # saving the lines of interest in memory, then extract the value from each
+# # line.
+# #
+
+hello = "1"
+test2 = $regex.replace($hello, "1", "2")
+#print $test2
+
+event_version_vars = \
+  EVENT_GIT___VERSION_MAJOR \
+  EVENT_GIT___VERSION_MINOR \
+  EVENT_GIT___VERSION_PATCH
+  #EVENT_GIT___VERSION_STAGE
+
+re_version_vars = '.+set\((PLACEHOLDER) ([0-9]+)\)'
+results =
+for var : $event_version_vars
+{
+  #print "-$var-"
+  re_var = $regex.replace($re_version_vars, "PLACEHOLDER", $var)
+  #print $re_var
+  lines = $process.run_regex(cat $src_base/VersionViaGit.cmake, "$re_var")
+  #print $lines
+  val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
+  results += "$var = $val"
+  # bring it in to scope (will expand to actual variable name)
+  $var = $val
+  #print $val
+  #print $var
+}
+
+EVENT_GIT___VERSION_STAGE = "stable"
+
+xxx = ABC
+$xxx = hej
+print $($xxx)
+
+#print $results
+
+re_config_vars = '^set\((PLACEHOLDER) (.+)\)'
+event_config_vars = \
+  EVENT_NUMERIC_VERSION \
+  EVENT_ABI_LIBVERSION_CURRENT \
+  EVENT_ABI_LIBVERSION_REVISION \
+  EVENT_ABI_LIBVERSION_AGE \
+  EVENT_PACKAGE_RELEASE \
+  EVENT_STAGE_NAME \
+  EVENT_VERSION
+
+for var : $event_config_vars
+{
+  print "-$var-"
+  re_var = $regex.replace($re_config_vars, "PLACEHOLDER", $var)
+  #print $re_var
+  lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_var")
+  #print $lines
+  val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
+  results += "$var = $val"
+  # bring it in to scope (will expand to actual variable name)
+  $var = $val
+  #print $val
+  #print $var
+}
+
+for res : $results
+{
+  print $res
+}
+
+# https://github.com/libevent/libevent/blob/5df3037d10556bfcb675bc73e516978b75fc7bc7/CMakeLists.txt#L68-L94
+EVENT_VERSION_MAJOR = $EVENT_GIT___VERSION_MAJOR
+EVENT_VERSION_MINOR = $EVENT_GIT___VERSION_MINOR
+EVENT_VERSION_PATCH = $EVENT_GIT___VERSION_PATCH
+EVENT_VERSION_STAGE = $EVENT_GIT___VERSION_STAGE
+
+EVENT_ABI_MAJOR = $EVENT_VERSION_MAJOR
+EVENT_ABI_MINOR = $EVENT_VERSION_MINOR
+EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
+
+EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
+EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
+
+print $EVENT_VERSION_MAJOR
+
+#re_configs = '^.+(EVENT_.+) (.+)\)'
+#re1 = '^\s*project\((.+) .+\)'
+#re2 = '^\s*set\(COPYRIGHT_YEAR\s+"(.+)"\)'
+#re3 = '^\s*set\(MEM_SRCDST_FUNCTIONS\s+"(.+)"\)'
+#lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_configs")
+
+#print($lines)
+#projname       = $regex.merge($lines, $re1, '\1', '', format_first_only format_no_copy)
+#copyright      = $regex.merge($lines, $re2, '\1', '', format_first_only format_no_copy)
+#exported_funcs = $regex.merge($lines, $re3, '\1', '', format_first_only format_no_copy)
+
+h{event-config}: in{event-config.h.cmake}
+
+# event_core
+lib{event_core}: {h c}{event-config src_core/*}
+lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
+
+switch $c.target.class
+{
+  case 'windows'
+  {
+    c.libs += iphlpapi
+  }
+}
+
+# event_extra
+
+# event_openssl
+
+# event_threads
+
 lib{event}: {h c}{* -version} h{version} $impl_libs $intf_libs
 
-h{version}: in{version} $src_root/manifest
+#h{version}: in{version} $src_root/manifest
 
 h{export}@./: c.importable = false
 
