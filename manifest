@@ -1,0 +1,12 @@
+: 1
+name: libevent
+version: 0.1.0-a.0.z
+summary: event C++ library
+license: other: proprietary ; Not free/open source.
+description-file: README.md
+url: https://example.org/libevent
+email: fho@Qualisys202.prolan.local
+#build-error-email: fho@Qualisys202.prolan.local
+depends: * build2 >= 0.15.0
+depends: * bpkg >= 0.15.0
+#depends: libhello ^1.0.0
