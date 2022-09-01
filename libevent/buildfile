@@ -9,76 +9,56 @@ using autoconf
 # # line.
 # #
 
-hello = "1"
-test2 = $regex.replace($hello, "1", "2")
-#print $test2
-
 event_version_vars = \
   EVENT_GIT___VERSION_MAJOR \
   EVENT_GIT___VERSION_MINOR \
   EVENT_GIT___VERSION_PATCH
   #EVENT_GIT___VERSION_STAGE
 
-re_version_vars = '.+set\((PLACEHOLDER) ([0-9]+)\)'
+re_version_vars = '.+set\((PLACEHOLDER)\s+([0-9]+)\)'
 results =
 for var : $event_version_vars
 {
-  #print "-$var-"
   re_var = $regex.replace($re_version_vars, "PLACEHOLDER", $var)
-  #print $re_var
   lines = $process.run_regex(cat $src_base/VersionViaGit.cmake, "$re_var")
-  #print $lines
   val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
   results += "$var = $val"
   # bring it in to scope (will expand to actual variable name)
   $var = $val
-  #print $val
-  #print $var
 }
 
 EVENT_GIT___VERSION_STAGE = "stable"
+EVENT_STAGE_NAME = $EVENT_GIT___VERSION_STAGE
 
-xxx = ABC
-$xxx = hej
-print $($xxx)
-
-#print $results
-
-re_config_vars = '^set\((PLACEHOLDER) (.+)\)'
+re_config_vars = '^set\((PLACEHOLDER)\s+(.+)\)'
 event_config_vars = \
   EVENT_NUMERIC_VERSION \
   EVENT_ABI_LIBVERSION_CURRENT \
   EVENT_ABI_LIBVERSION_REVISION \
   EVENT_ABI_LIBVERSION_AGE \
-  EVENT_PACKAGE_RELEASE \
-  EVENT_STAGE_NAME \
-  EVENT_VERSION
+  EVENT_PACKAGE_RELEASE
 
 for var : $event_config_vars
 {
-  print "-$var-"
   re_var = $regex.replace($re_config_vars, "PLACEHOLDER", $var)
-  #print $re_var
   lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_var")
-  #print $lines
   val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
   results += "$var = $val"
   # bring it in to scope (will expand to actual variable name)
   $var = $val
-  #print $val
-  #print $var
 }
 
-for res : $results
-{
-  print $res
-}
+# for res : $results
+# {
+#   print $res
+# }
 
 # https://github.com/libevent/libevent/blob/5df3037d10556bfcb675bc73e516978b75fc7bc7/CMakeLists.txt#L68-L94
 EVENT_VERSION_MAJOR = $EVENT_GIT___VERSION_MAJOR
 EVENT_VERSION_MINOR = $EVENT_GIT___VERSION_MINOR
 EVENT_VERSION_PATCH = $EVENT_GIT___VERSION_PATCH
 EVENT_VERSION_STAGE = $EVENT_GIT___VERSION_STAGE
+EVENT_VERSION = $EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH-$EVENT_STAGE_NAME
 
 EVENT_ABI_MAJOR = $EVENT_VERSION_MAJOR
 EVENT_ABI_MINOR = $EVENT_VERSION_MINOR
@@ -87,40 +67,36 @@ EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
 EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
 EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
 
-print $EVENT_VERSION_MAJOR
-
-#re_configs = '^.+(EVENT_.+) (.+)\)'
-#re1 = '^\s*project\((.+) .+\)'
-#re2 = '^\s*set\(COPYRIGHT_YEAR\s+"(.+)"\)'
-#re3 = '^\s*set\(MEM_SRCDST_FUNCTIONS\s+"(.+)"\)'
-#lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_configs")
-
-#print($lines)
-#projname       = $regex.merge($lines, $re1, '\1', '', format_first_only format_no_copy)
-#copyright      = $regex.merge($lines, $re2, '\1', '', format_first_only format_no_copy)
-#exported_funcs = $regex.merge($lines, $re3, '\1', '', format_first_only format_no_copy)
-
-h{event-config}: in{event-config.h.cmake}
-
-# event_core
-lib{event_core}: {h c}{event-config src_core/*}
-lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
-
-switch $c.target.class
+h{event2/event-config}: in{event2/event-config.h.cmake}
 {
-  case 'windows'
-  {
-    c.libs += iphlpapi
-  }
+  autoconf.prefix="EVENT__"
+  EVENT__DISABLE_DEBUG_MODE = 1
+  EVENT__ENABLE_VERBOSE_DEBUG = 1
+  EVENT__DISABLE_MM_REPLACEMENT = 1
+  EVENT__DISABLE_THREAD_SUPPORT = 1
+  EVENT__DISABLE_OPENSSL = 1
+  EVENT__DISABLE_BENCHMARK = 1
+  EVENT__DISABLE_TESTS = 1
+  EVENT__DISABLE_REGRESS = 1
+  EVENT__DISABLE_SAMPLES = 1
+  EVENT__COVERAGE = 0
 }
 
-# event_extra
+# h{evconfig-private.h}: in{evconfig-private.h.cmake}
+
+# event_core
+./: lib{event_core}: {h c}{include/** src_core/*}
+lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
+
+#event extra
+lib{event_extra}: {h c}{include/** src_extra/*}
 
 # event_openssl
-
+# ...
 # event_threads
+# ...
 
-lib{event}: {h c}{* -version} h{version} $impl_libs $intf_libs
+./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_core} lib{event_extra}
 
 #h{version}: in{version} $src_root/manifest
 
@@ -128,17 +104,42 @@ h{export}@./: c.importable = false
 
 # Build options.
 #
-c.poptions =+ "-I$out_root" "-I$src_root"
+c.poptions =+ "-I$out_root/libevent" "-I$src_base/include" "-I$src_base/include_internal"
 
-{hbmia obja}{*}: c.poptions += -DLIBEVENT_STATIC_BUILD
-{hbmis objs}{*}: c.poptions += -DLIBEVENT_SHARED_BUILD
+# evconfig_internal_defines = \
+#   -D_ALL_SOURCE=0 \
+#   -D_GNU_SOURCE=0 \
+#   -D_POSIX_PTHREAD_SEMANTICS=0 \
+#   -D_TANDEM_SOURCE=0 \
+#   -D__EXTENSIONS_=0\
+#   -D_FILE_OFFSET_BITS=0 \
+#   -D_LARGE_FILES=0 \
+#   -D_MINIX=0 \
+#   -D_POSIX_1_SOURCE=0 \
+#   -D_POSIX_SOURCE=0 \
+#   -D__EXT_POSIX2=0
+
+# c.coptions+=$evconfig_internal_defines
+
+switch $c.target.class
+{
+  case 'windows'
+  {
+    win_defines = \
+      -Devent_shared_EXPORTS            \
+      -Devent_extra_shared_EXPORTS      \
+      -Devent_core_shared_EXPORTS
+    c.libs += iphlpapi
+    {hbmis objs}{*}: c.poptions += $win_defines
+  }
+}
 
 # Export options.
 #
 lib{event}:
 {
   c.export.poptions = "-I$out_root" "-I$src_root"
-  c.export.libs = $intf_libs
+  c.export.libs = $intf_libs # ws2_32 shell32 advapi32
 }
 
 liba{event}: c.export.poptions += -DLIBEVENT_STATIC

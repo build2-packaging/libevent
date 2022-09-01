@@ -19,3 +19,4 @@
 #*.png binary
 
 libevent/include symlink=dir
+libevent/include_internal/sys symlink=dir
