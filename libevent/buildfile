@@ -67,36 +67,52 @@ EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
 EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
 EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
 
-h{event2/event-config}: in{event2/event-config.h.cmake}
-{
-  autoconf.prefix="EVENT__"
-  EVENT__DISABLE_DEBUG_MODE = 1
-  EVENT__ENABLE_VERBOSE_DEBUG = 1
-  EVENT__DISABLE_MM_REPLACEMENT = 1
-  EVENT__DISABLE_THREAD_SUPPORT = 1
-  EVENT__DISABLE_OPENSSL = 1
-  EVENT__DISABLE_BENCHMARK = 1
-  EVENT__DISABLE_TESTS = 1
-  EVENT__DISABLE_REGRESS = 1
-  EVENT__DISABLE_SAMPLES = 1
-  EVENT__COVERAGE = 0
-}
+# h{event2/event-config}: in{event2/event-config.h.cmake}
+# {
+#   autoconf.prefix="EVENT__"
+#   EVENT__DISABLE_DEBUG_MODE = 1
+#   EVENT__ENABLE_VERBOSE_DEBUG = 1
+#   EVENT__DISABLE_MM_REPLACEMENT = 1
+#   EVENT__DISABLE_THREAD_SUPPORT = 1
+#   EVENT__DISABLE_OPENSSL = 1
+#   EVENT__DISABLE_BENCHMARK = 1
+#   EVENT__DISABLE_TESTS = 1
+#   EVENT__DISABLE_REGRESS = 1
+#   EVENT__DISABLE_SAMPLES = 1
+#   EVENT__COVERAGE = 0
+# }
 
 # h{evconfig-private.h}: in{evconfig-private.h.cmake}
 
+switch $c.target.class
+{
+  case 'windows'
+  {
+    c.libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
+  }
+}
+
+c.poptions += -Devent_core_shared_EXPORTS
+
 # event_core
-./: lib{event_core}: {h c}{include/** src_core/*}
+lib{event_core}: {h c}{event2/event-config.h include/** src_core/*}
+{
+  c.poptions += -Devent_core_shared_EXPORTS
+}
 lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
 
 #event extra
-lib{event_extra}: {h c}{include/** src_extra/*}
+lib{event_extra}: {h c}{include/** src_extra/*} lib{event_core}
+{
+  #c.poptions += -Devent_extra_shared_EXPORTS
+}
 
 # event_openssl
 # ...
 # event_threads
 # ...
 
-./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_core} lib{event_extra}
+./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_extra} lib{event_core}
 
 #h{version}: in{version} $src_root/manifest
 
@@ -104,7 +120,7 @@ h{export}@./: c.importable = false
 
 # Build options.
 #
-c.poptions =+ "-I$out_root/libevent" "-I$src_base/include" "-I$src_base/include_internal"
+c.poptions =+ "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
 
 # evconfig_internal_defines = \
 #   -D_ALL_SOURCE=0 \
@@ -125,12 +141,12 @@ switch $c.target.class
 {
   case 'windows'
   {
-    win_defines = \
-      -Devent_shared_EXPORTS            \
-      -Devent_extra_shared_EXPORTS      \
-      -Devent_core_shared_EXPORTS
-    c.libs += iphlpapi
-    {hbmis objs}{*}: c.poptions += $win_defines
+    # win_defines = \
+    #   -Devent_shared_EXPORTS            \
+    #   -Devent_extra_shared_EXPORTS      \
+    #   -Devent_core_shared_EXPORTS
+    c.libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
+    # c.poptions += $win_defines
   }
 }
 
@@ -142,8 +158,8 @@ lib{event}:
   c.export.libs = $intf_libs # ws2_32 shell32 advapi32
 }
 
-liba{event}: c.export.poptions += -DLIBEVENT_STATIC
-libs{event}: c.export.poptions += -DLIBEVENT_SHARED
+# liba{event}: c.export.poptions += -DLIBEVENT_STATIC
+# libs{event}: c.export.poptions += -DLIBEVENT_SHARED
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version. See the version module
