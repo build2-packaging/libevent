@@ -1,35 +1,37 @@
-intf_libs = # Interface dependencies.
-impl_libs = # Implementation dependencies.
-#import xxxx_libs += libhello%lib{hello}
-
 using autoconf
 
-# Extract values from the upstream CMakeLists.txt. Parse the file only once,
-# # saving the lines of interest in memory, then extract the value from each
-# # line.
-# #
+sys_libs = # System libraries
 
+switch $c.target.class
+{
+  case 'windows'
+  {
+    sys_libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
+  }
+}
+
+# Configuration
+## Extract values from the upstream CMakeLists.txt & VersionViaGit.cmake files.
+
+# https://github.com/libevent/libevent/blob/5df3037d10556bfcb675bc73e516978b75fc7bc7/cmake/VersionViaGit.cmake#L24-L27
 event_version_vars = \
   EVENT_GIT___VERSION_MAJOR \
   EVENT_GIT___VERSION_MINOR \
-  EVENT_GIT___VERSION_PATCH
-  #EVENT_GIT___VERSION_STAGE
+  EVENT_GIT___VERSION_PATCH \
+  EVENT_GIT___VERSION_STAGE
 
-re_version_vars = '.+set\((PLACEHOLDER)\s+([0-9]+)\)'
-results =
+# https://regex101.com/r/adJCzJ/1
+re_version_vars = '.+set\((PLACEHOLDER)\s+(([0-9]+|\"[a-z]+\")?)\)'
 for var : $event_version_vars
 {
   re_var = $regex.replace($re_version_vars, "PLACEHOLDER", $var)
   lines = $process.run_regex(cat $src_base/VersionViaGit.cmake, "$re_var")
   val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
-  results += "$var = $val"
   # bring it in to scope (will expand to actual variable name)
   $var = $val
 }
 
-EVENT_GIT___VERSION_STAGE = "stable"
-EVENT_STAGE_NAME = $EVENT_GIT___VERSION_STAGE
-
+# https://regex101.com/r/A4AUM3/1
 re_config_vars = '^set\((PLACEHOLDER)\s+(.+)\)'
 event_config_vars = \
   EVENT_NUMERIC_VERSION \
@@ -37,13 +39,11 @@ event_config_vars = \
   EVENT_ABI_LIBVERSION_REVISION \
   EVENT_ABI_LIBVERSION_AGE \
   EVENT_PACKAGE_RELEASE
-
 for var : $event_config_vars
 {
   re_var = $regex.replace($re_config_vars, "PLACEHOLDER", $var)
   lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_var")
   val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
-  results += "$var = $val"
   # bring it in to scope (will expand to actual variable name)
   $var = $val
 }
@@ -62,37 +62,39 @@ EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
 EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
 EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
 
-# Output to a 'event2' folder, since includes expect this.
+# Output to an 'event2' folder, since includes expect this.
+# TODO: libevent uses '#ifdef' checks, meaning the value doesn't matter.
+#       So change below defines to be optional c.poptions defines instead
 $out_base/event2/h{event-config}: in{event-config.h.cmake}
 {
   autoconf.prefix="EVENT__"
   EVENT__DISABLE_DEBUG_MODE = 1
-  EVENT__ENABLE_VERBOSE_DEBUG = 0
   EVENT__DISABLE_MM_REPLACEMENT = 1
   EVENT__DISABLE_THREAD_SUPPORT = 1
-  EVENT__DISABLE_OPENSSL = 1
-  EVENT__DISABLE_BENCHMARK = 1
-  EVENT__DISABLE_TESTS = 1
-  EVENT__DISABLE_REGRESS = 1
-  EVENT__DISABLE_SAMPLES = 1
-  EVENT__COVERAGE = 0
 }
 
+# TODO (need fix for '_VAR' names being reserved):
 # h{evconfig-private.h}: in{evconfig-private.h.cmake}
 
 # event_core
-lib{event_core}: h{include/** event2/event-config} {c}{src_core/*}
+lib{event_core}: include/h{**} h{event2/event-config} {c}{* src_core/*}
+{
+  c.libs += $sys_libs
+}
 lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
 
 #event extra
-lib{event_extra}: h{include/** event2/event-config} {c}{src_extra/*} lib{event_core}
+lib{event_extra}: include/h{**} h{event2/event-config} {c}{src_extra/*} lib{event_core}
+{
+  c.libs += $sys_libs
+}
 
 # event_openssl
 # ...
 # event_threads
 # ...
 
-./: lib{event}: h{include/** event2/event-config} {c}{*} $impl_libs $intf_libs lib{event_extra} lib{event_core}
+./: lib{event}: lib{event_extra} lib{event_core}
 
 h{export}@./: c.importable = false
 
@@ -100,23 +102,21 @@ h{export}@./: c.importable = false
 #
 c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
 
-obj{src_core/*}: c.poptions += -Devent_core_shared_EXPORTS
-obj{src_extra/*}: c.poptions += -Devent_extra_shared_EXPORTS
-
-switch $c.target.class
+obj{src_core/*}:
 {
-  case 'windows'
-  {
-    c.libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
-  }
+  c.poptions += -Devent_core_shared_EXPORTS
+}
+obj{src_extra/*}:
+{
+  c.poptions += -Devent_extra_shared_EXPORTS
 }
 
 # Export options.
 #
 lib{event}:
 {
-  c.export.poptions = "-I$out_root" "-I$src_root"
-  c.export.libs = $intf_libs
+  c.export.poptions = "-I$out_base" "-I$src_base/include"
+  c.export.libs = lib{event_extra} lib{event_core} $sys_libs
 }
 
 # For pre-releases use the complete version to make sure they cannot be used
@@ -131,8 +131,13 @@ else
 # Install into the libevent/ subdirectory of, say, /usr/include/
 # recreating subdirectories.
 #
-{h}{*}:
+h{include/*}:
 {
   install         = include/libevent/
+  install.subdirs = true
+}
+h{event2/event-config}:
+{
+  install         = include/libevent/event2
   install.subdirs = true
 }

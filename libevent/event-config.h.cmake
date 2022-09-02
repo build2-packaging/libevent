@@ -36,7 +36,7 @@
 #define EVENT__PACKAGE_TARNAME ""
 
 /* Define if libevent should build without support for a debug mode */
-//DISABLE: #cmakedefine EVENT__DISABLE_DEBUG_MODE 1
+#cmakedefine EVENT__DISABLE_DEBUG_MODE 1
 
 /* Define if libevent should not allow replacing the mm functions */
 #cmakedefine EVENT__DISABLE_MM_REPLACEMENT 1
