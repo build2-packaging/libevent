@@ -48,11 +48,6 @@ for var : $event_config_vars
   $var = $val
 }
 
-# for res : $results
-# {
-#   print $res
-# }
-
 # https://github.com/libevent/libevent/blob/5df3037d10556bfcb675bc73e516978b75fc7bc7/CMakeLists.txt#L68-L94
 EVENT_VERSION_MAJOR = $EVENT_GIT___VERSION_MAJOR
 EVENT_VERSION_MINOR = $EVENT_GIT___VERSION_MINOR
@@ -71,7 +66,7 @@ EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSIO
 # {
 #   autoconf.prefix="EVENT__"
 #   EVENT__DISABLE_DEBUG_MODE = 1
-#   EVENT__ENABLE_VERBOSE_DEBUG = 1
+#   EVENT__ENABLE_VERBOSE_DEBUG = 0
 #   EVENT__DISABLE_MM_REPLACEMENT = 1
 #   EVENT__DISABLE_THREAD_SUPPORT = 1
 #   EVENT__DISABLE_OPENSSL = 1
@@ -84,28 +79,12 @@ EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSIO
 
 # h{evconfig-private.h}: in{evconfig-private.h.cmake}
 
-switch $c.target.class
-{
-  case 'windows'
-  {
-    c.libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
-  }
-}
-
-c.poptions += -Devent_core_shared_EXPORTS
-
 # event_core
 lib{event_core}: {h c}{event2/event-config.h include/** src_core/*}
-{
-  c.poptions += -Devent_core_shared_EXPORTS
-}
 lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
 
 #event extra
 lib{event_extra}: {h c}{include/** src_extra/*} lib{event_core}
-{
-  #c.poptions += -Devent_extra_shared_EXPORTS
-}
 
 # event_openssl
 # ...
@@ -115,38 +94,20 @@ lib{event_extra}: {h c}{include/** src_extra/*} lib{event_core}
 ./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_extra} lib{event_core}
 
 #h{version}: in{version} $src_root/manifest
-
 h{export}@./: c.importable = false
 
 # Build options.
 #
+obj{src_core/*}: c.poptions += -Devent_core_shared_EXPORTS
+obj{src_extra/*}: c.poptions += -Devent_extra_shared_EXPORTS
+
 c.poptions =+ "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
-
-# evconfig_internal_defines = \
-#   -D_ALL_SOURCE=0 \
-#   -D_GNU_SOURCE=0 \
-#   -D_POSIX_PTHREAD_SEMANTICS=0 \
-#   -D_TANDEM_SOURCE=0 \
-#   -D__EXTENSIONS_=0\
-#   -D_FILE_OFFSET_BITS=0 \
-#   -D_LARGE_FILES=0 \
-#   -D_MINIX=0 \
-#   -D_POSIX_1_SOURCE=0 \
-#   -D_POSIX_SOURCE=0 \
-#   -D__EXT_POSIX2=0
-
-# c.coptions+=$evconfig_internal_defines
 
 switch $c.target.class
 {
   case 'windows'
   {
-    # win_defines = \
-    #   -Devent_shared_EXPORTS            \
-    #   -Devent_extra_shared_EXPORTS      \
-    #   -Devent_core_shared_EXPORTS
     c.libs += iphlpapi.lib ws2_32.lib shell32.lib advapi32.lib
-    # c.poptions += $win_defines
   }
 }
 
@@ -155,11 +116,8 @@ switch $c.target.class
 lib{event}:
 {
   c.export.poptions = "-I$out_root" "-I$src_root"
-  c.export.libs = $intf_libs # ws2_32 shell32 advapi32
+  c.export.libs = $intf_libs
 }
-
-# liba{event}: c.export.poptions += -DLIBEVENT_STATIC
-# libs{event}: c.export.poptions += -DLIBEVENT_SHARED
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version. See the version module
