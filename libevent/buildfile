@@ -62,46 +62,46 @@ EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
 EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
 EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
 
-# h{event2/event-config}: in{event2/event-config.h.cmake}
-# {
-#   autoconf.prefix="EVENT__"
-#   EVENT__DISABLE_DEBUG_MODE = 1
-#   EVENT__ENABLE_VERBOSE_DEBUG = 0
-#   EVENT__DISABLE_MM_REPLACEMENT = 1
-#   EVENT__DISABLE_THREAD_SUPPORT = 1
-#   EVENT__DISABLE_OPENSSL = 1
-#   EVENT__DISABLE_BENCHMARK = 1
-#   EVENT__DISABLE_TESTS = 1
-#   EVENT__DISABLE_REGRESS = 1
-#   EVENT__DISABLE_SAMPLES = 1
-#   EVENT__COVERAGE = 0
-# }
+# Output to a 'event2' folder, since includes expect this.
+$out_base/event2/h{event-config}: in{event-config.h.cmake}
+{
+  autoconf.prefix="EVENT__"
+  EVENT__DISABLE_DEBUG_MODE = 1
+  EVENT__ENABLE_VERBOSE_DEBUG = 0
+  EVENT__DISABLE_MM_REPLACEMENT = 1
+  EVENT__DISABLE_THREAD_SUPPORT = 1
+  EVENT__DISABLE_OPENSSL = 1
+  EVENT__DISABLE_BENCHMARK = 1
+  EVENT__DISABLE_TESTS = 1
+  EVENT__DISABLE_REGRESS = 1
+  EVENT__DISABLE_SAMPLES = 1
+  EVENT__COVERAGE = 0
+}
 
 # h{evconfig-private.h}: in{evconfig-private.h.cmake}
 
 # event_core
-lib{event_core}: {h c}{event2/event-config.h include/** src_core/*}
+lib{event_core}: h{include/** event2/event-config} {c}{src_core/*}
 lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
 
 #event extra
-lib{event_extra}: {h c}{include/** src_extra/*} lib{event_core}
+lib{event_extra}: h{include/** event2/event-config} {c}{src_extra/*} lib{event_core}
 
 # event_openssl
 # ...
 # event_threads
 # ...
 
-./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_extra} lib{event_core}
+./: lib{event}: h{include/** event2/event-config} {c}{*} $impl_libs $intf_libs lib{event_extra} lib{event_core}
 
-#h{version}: in{version} $src_root/manifest
 h{export}@./: c.importable = false
 
 # Build options.
 #
+c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
+
 obj{src_core/*}: c.poptions += -Devent_core_shared_EXPORTS
 obj{src_extra/*}: c.poptions += -Devent_extra_shared_EXPORTS
-
-c.poptions =+ "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
 
 switch $c.target.class
 {
