@@ -102,11 +102,11 @@ h{export}@./: c.importable = false
 #
 c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/include" "-I$src_base/include_internal"
 
-obj{src_core/*}:
+obj{src_core/**}:
 {
   c.poptions += -Devent_core_shared_EXPORTS
 }
-obj{src_extra/*}:
+obj{src_extra/**}:
 {
   c.poptions += -Devent_extra_shared_EXPORTS
 }
