@@ -1,12 +1,17 @@
 : 1
 name: libevent
-version: 0.1.0-a.0.z
-summary: event C++ library
-license: other: proprietary ; Not free/open source.
+version: 2.1.12-a.0.z
+summary: Event notification C library
+license: BSD-3-Clause, MIT, BSD-2-Clause, Apache-2.0, other
 description-file: README.md
-url: https://example.org/libevent
-email: fho@Qualisys202.prolan.local
-#build-error-email: fho@Qualisys202.prolan.local
+changes-file: ChangeLog
+changes-file: ChangeLog-2.0
+changes-file: ChangeLog-1.4
+url: https://libevent.org
+src-url: https://github.com/libevent/libevent
+package-url: https://github.com/build2-packaging/libevent
+email: http://archives.seul.org/libevent/users  ; Mailing list.
+package-email: packaging@build2.org             ; Mailing list.
+build-error-email: builds@build2.org
 depends: * build2 >= 0.15.0
 depends: * bpkg >= 0.15.0
-#depends: libhello ^1.0.0

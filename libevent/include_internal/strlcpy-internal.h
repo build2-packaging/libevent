@@ -1,1 +1,0 @@
-../../upstream/strlcpy-internal.h

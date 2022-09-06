@@ -1,1 +1,0 @@
-../upstream/cmake/VersionViaGit.cmake
