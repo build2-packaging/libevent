@@ -93,7 +93,14 @@ lib{event_extra}: include/h{**} h{event2/event-config} {c}{src_extra/*} lib{even
 #event openssl
 lib{event_openssl}: include/h{**} h{event2/event-config} {c}{src_openssl/*} lib{event_core} $openssl_libs
 
+# event threads
+lib{event_pthreads}: include/h{**} h{event2/event-config} {c}{src_pthreads/*} lib{event_core}:
+{
+  include = ($c.class != 'msvc')
+}
+
 ./: lib{event}: lib{event_openssl} lib{event_extra} lib{event_core}
+./: lib{event}: lib{event_pthreads}: include = ($c.class != 'msvc')
 
 h{export}@./: c.importable = false
 
@@ -113,6 +120,8 @@ obj{src_openssl/**}:
 {
   c.poptions += -Devent_openssl_shared_EXPORTS
 }
+# TODO: Look over this syntax. How does one conditionally exclude a "variable/config assignment prerequisite"?
+obj{src_pthreads/**}: c.poptions += -Devent_pthreads_shared_EXPORTS: include = ($c.class != 'msvc')
 
 # Export options.
 #
@@ -121,6 +130,8 @@ lib{event}:
   c.export.poptions = "-I$out_base" "-I$src_base/include"
   c.export.libs = lib{event_openssl} lib{event_extra} lib{event_core} $sys_libs
 }
+# TODO: Conditionally export event_pthreads (a ports exist but unsure if we want to use that)
+# lib{event}: c.export.libs += lib{event_pthreads}: include = ($c.class != 'msvc')
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version. See the version module
