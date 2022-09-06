@@ -1,5 +1,6 @@
 using autoconf
 
+import openssl_libs = libssl%lib{ssl}
 sys_libs = # System libraries
 
 switch $c.target.class
@@ -63,20 +64,20 @@ EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
 EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
 
 # Output to an 'event2' folder, since includes expect this.
-# TODO: libevent uses '#ifdef' checks, meaning the value doesn't matter.
-#       So change below defines to be optional c.poptions defines instead
 $out_base/event2/h{event-config}: in{event-config.h.cmake}
 {
   autoconf.prefix="EVENT__"
   EVENT__DISABLE_DEBUG_MODE = 1
   EVENT__DISABLE_MM_REPLACEMENT = 1
+  EVENT__HAVE_LIBZ = 0
+  EVENT__HAVE_OPENSSL = 1
   EVENT__DISABLE_THREAD_SUPPORT = 1
 }
 
 # TODO (need fix for '_VAR' names being reserved):
 # h{evconfig-private.h}: in{evconfig-private.h.cmake}
 
-# event_core
+# event core
 lib{event_core}: include/h{**} h{event2/event-config} {c}{* src_core/*}
 {
   c.libs += $sys_libs
@@ -89,12 +90,10 @@ lib{event_extra}: include/h{**} h{event2/event-config} {c}{src_extra/*} lib{even
   c.libs += $sys_libs
 }
 
-# event_openssl
-# ...
-# event_threads
-# ...
+#event openssl
+lib{event_openssl}: include/h{**} h{event2/event-config} {c}{src_openssl/*} lib{event_core} $openssl_libs
 
-./: lib{event}: lib{event_extra} lib{event_core}
+./: lib{event}: lib{event_openssl} lib{event_extra} lib{event_core}
 
 h{export}@./: c.importable = false
 
@@ -110,13 +109,17 @@ obj{src_extra/**}:
 {
   c.poptions += -Devent_extra_shared_EXPORTS
 }
+obj{src_openssl/**}:
+{
+  c.poptions += -Devent_openssl_shared_EXPORTS
+}
 
 # Export options.
 #
 lib{event}:
 {
   c.export.poptions = "-I$out_base" "-I$src_base/include"
-  c.export.libs = lib{event_extra} lib{event_core} $sys_libs
+  c.export.libs = lib{event_openssl} lib{event_extra} lib{event_core} $sys_libs
 }
 
 # For pre-releases use the complete version to make sure they cannot be used
