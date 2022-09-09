@@ -1,3 +1,25 @@
-import libs = libevent%lib{event}
+windows = ($c.target.class == 'windows')
 
-exe{driver}: {h c}{**} $libs testscript{**}
+import! [metadata, rule_hint=c.link] lib_core = libevent%lib{event_core}
+
+if $($lib_core: libevent.extra)
+  import lib_extra = libevent%lib{event_extra}
+
+if $($lib_core: libevent.openssl)
+{
+  import libs_openssl  = libevent%lib{event_openssl}
+  import libs_openssl += libssl%lib{ssl}
+}
+
+if $($lib_core: libevent.pthreads)
+  import lib_pthreads = libevent%lib{event_pthreads}
+
+./: exe{driver-core}
+./: exe{driver-extra}:    include = $($lib_core: libevent.extra)
+./: exe{driver-openssl}:  include = $($lib_core: libevent.openssl)
+./: exe{driver-pthreads}: include = $($lib_core: libevent.pthreads)
+
+exe{driver-core}:     c{driver-core}     $lib_core
+exe{driver-extra}:    c{driver-extra}    $lib_core $lib_extra
+exe{driver-openssl}:  c{driver-openssl}  $lib_core $libs_openssl
+exe{driver-pthreads}: c{driver-pthreads} $lib_core $lib_pthreads

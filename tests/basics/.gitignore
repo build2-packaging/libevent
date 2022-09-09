@@ -1,0 +1,6 @@
+# Test executables.
+#
+driver-core
+driver-extra
+driver-pthreads
+driver-openssl
