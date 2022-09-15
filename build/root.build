@@ -6,3 +6,16 @@ c{*}: extension = c
 # The test target for cross-testing (running tests under Wine, etc).
 #
 test.target = $c.target
+
+config [bool] config.libevent.develop ?= false
+
+# If true, build with EVENT__DISABLE_DEBUG_MODE=0.
+#
+config [bool] config.libevent.debug ?= false
+
+# If these variables are true, enable the corresponding library (and its
+# dependencies).
+#
+config [bool] config.libevent.extra    ?= $config.libevent.develop
+config [bool] config.libevent.openssl  ?= $config.libevent.develop
+config [bool] config.libevent.pthreads ?= $config.libevent.develop

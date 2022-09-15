@@ -2,7 +2,7 @@
 name: libevent
 version: 2.1.12-a.0.z
 summary: Event notification C library
-license: BSD-3-Clause, MIT, BSD-2-Clause, Apache-2.0, other
+license: BSD-3-Clause AND BSD-2-Clause AND MIT
 description-file: README.md
 changes-file: ChangeLog
 changes-file: ChangeLog-2.0
@@ -10,8 +10,10 @@ changes-file: ChangeLog-1.4
 url: https://libevent.org
 src-url: https://github.com/libevent/libevent
 package-url: https://github.com/build2-packaging/libevent
-email: http://archives.seul.org/libevent/users  ; Mailing list.
-package-email: packaging@build2.org             ; Mailing list.
+package-email: packaging@build2.org ; Mailing list.
 build-error-email: builds@build2.org
-depends: * build2 >= 0.15.0
-depends: * bpkg >= 0.15.0
+builds: all
+depends: * build2 >= 0.16.0-
+depends: * bpkg >= 0.16.0-
+depends: libssl >= 1.1.1 ? ($config.libevent.openssl)
+depends: libcrypto >= 1.1.1 ? ($config.libevent.openssl)

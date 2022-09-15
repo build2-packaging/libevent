@@ -1,164 +1,340 @@
-intf_libs = # Interface dependencies.
-impl_libs = # Implementation dependencies.
-#import xxxx_libs += libhello%lib{hello}
+import openssl_libs  = libssl%lib{ssl}
+import openssl_libs += libcrypto%lib{crypto}
 
+linux   = ($c.target.class  == 'linux')
+bsd     = ($c.target.class  == 'bsd')
+windows = ($c.target.class  == 'windows')
+macos   = ($c.target.class  == 'macos')
+
+glibc = ($c.stdlib == 'glibc')
+
+# The libraries:
+#
+# (The descriptions are from
+# http://www.wangafu.net/~nickm/libevent-book/Ref0_meta.html.)
+#
+# lib{event_core}: All core event and buffer functionality. This library
+#                  contains all the event_base, evbuffer, bufferevent, and
+#                  utility functions.
+#
+# lib{event_extra}: This library defines protocol-specific functionality that
+#                   you may or may not want for your application, including
+#                   HTTP, DNS, and RPC.
+#
+# lib{event_openssl}: This library provides support for encrypted
+#                     communications using bufferevents and the OpenSSL
+#                     library. It is separated from libevent_core so that you
+#                     don’t need to link against OpenSSL to use Libevent
+#                     unless you are actually using encrypted connections.
+#
+# lib{event_pthreads}: This library adds threading and locking implementations
+#                      based on the pthreads portable threading library. It is
+#                      separated from libevent_core so that you don’t need to
+#                      link against pthreads to use Libevent unless you are
+#                      actually using Libevent in a multithreaded way.
+#
+# lib{event}: (Not built) This library exists for historical reasons; it
+#                         contains the contents of both libevent_core and
+#                         libevent_extra. You shouldn’t use it; it may go away
+#                         in a future version of Libevent.
+#
+# @@ TODO
+#
+# While it would have been nice to split this into separate packages (so that,
+# for example, you don't get the OpenSSL dependency when you don't need
+# libevent_openssl), this is not going to be easy since the libraries share
+# the configuration files (see EVENT__HAVE_OPENSSL). The alternative would be
+# to provide configuration variables per extra library (default true) that the
+# user can disable.
+#
+
+# Source files for lib{event_core}.
+#
+src_core = buffer               \
+           bufferevent          \
+           bufferevent_filter   \
+           bufferevent_pair     \
+           bufferevent_ratelim  \
+           bufferevent_sock     \
+           event                \
+           evmap                \
+           evthread             \
+           evutil               \
+           evutil_rand          \
+           evutil_time          \
+           listener             \
+           log                  \
+           signal               \
+           strlcpy
+
+# Source files for lib{event_core} on Linux.
+#
+src_core_linux = epoll  \
+                 poll   \
+                 select
+
+# Source files for lib{event_core} on BSD.
+#
+src_core_bsd = kqueue   \
+               poll     \
+               select
+
+# Source files for lib{event_core} on MacOS.
+#
+src_core_macos = $src_core_bsd
+
+# Source files for lib{event_core} on Windows.
+#
+src_core_win = buffer_iocp              \
+               bufferevent_async        \
+               event_iocp               \
+               evthread_win32           \
+               win32select
+
+# Source files for lib{event_extra}.
+#
+src_extra = evdns               \
+            event_tagging       \
+            evrpc               \
+            http
+
+# Source files for lib{event_openssl}.
+#
+src_openssl = bufferevent_openssl
+
+# Source files for lib{event_pthreads}.
+#
+src_pthreads = evthread_pthread
+
+# Generated headers.
+#
+gen_hdr = include/event2/event-config   \
+          include/evconfig-private
+
+./: lib{event_core}
+
+# If true, build lib{event_pthreads}.
+#
+pthreads = ($config.libevent.pthreads && !$windows)
+
+./: lib{event_extra}:    include = $config.libevent.extra
+./: lib{event_openssl}:  include = $config.libevent.openssl
+./: lib{event_pthreads}: include = $pthreads
+
+lib{event_core}:
+{
+  export.metadata = 1 libevent
+
+  libevent.extra    = [bool] $config.libevent.extra
+  libevent.openssl  = [bool] $config.libevent.openssl
+  libevent.pthreads = [bool] $pthreads
+}
+
+lib{event_core}: h{** -{$gen_hdr}} h{$gen_hdr} c{$src_core}
+
+# Keep this file in the distribution (see below).
+#
+lib{event_core}: file{CMakeLists.txt}: include = adhoc
+
+# Included source files.
+#
+lib{event_core}: c{arc4random}:      include = adhoc
+
+# Platform-specific source files.
+#
+lib{event_core}: c{$src_core_linux}: include = $linux
+lib{event_core}: c{$src_core_bsd}:   include = $bsd
+lib{event_core}: c{$src_core_macos}: include = $macos
+lib{event_core}: c{$src_core_win}:   include = $windows
+
+# Source files for unsupported platforms (but keep them in the distribution).
+#
+# Note that epoll_sub.c is omitted because it is not used by upstream (see
+# upstream commit cea61de6094afb2c7d47c035687be97122ba0f05).
+#
+lib{event_core}: c{devpoll evport}: include = false
+
+lib{event_extra}:    c{$src_extra}    lib{event_core}
+
+lib{event_openssl}:  c{$src_openssl}  lib{event_core} $openssl_libs
+
+lib{event_pthreads}: c{$src_pthreads} lib{event_core}
+
+# Generated headers.
+#
 using autoconf
 
-# Extract values from the upstream CMakeLists.txt. Parse the file only once,
-# # saving the lines of interest in memory, then extract the value from each
-# # line.
-# #
+# Extract the numeric version from the upstream CMakeLists.txt.
+#
+EVENT_NUMERIC_VERSION =                                         \
+  $process.run_regex(cat $src_base/CMakeLists.txt,              \
+                     '^\s*set\(EVENT_NUMERIC_VERSION\s+(.+)\)', \
+                     '\1')
 
-event_version_vars = \
-  EVENT_GIT___VERSION_MAJOR \
-  EVENT_GIT___VERSION_MINOR \
-  EVENT_GIT___VERSION_PATCH
-  #EVENT_GIT___VERSION_STAGE
-
-re_version_vars = '.+set\((PLACEHOLDER)\s+([0-9]+)\)'
-results =
-for var : $event_version_vars
-{
-  re_var = $regex.replace($re_version_vars, "PLACEHOLDER", $var)
-  lines = $process.run_regex(cat $src_base/VersionViaGit.cmake, "$re_var")
-  val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
-  results += "$var = $val"
-  # bring it in to scope (will expand to actual variable name)
-  $var = $val
-}
-
-EVENT_GIT___VERSION_STAGE = "stable"
-EVENT_STAGE_NAME = $EVENT_GIT___VERSION_STAGE
-
-re_config_vars = '^set\((PLACEHOLDER)\s+(.+)\)'
-event_config_vars = \
-  EVENT_NUMERIC_VERSION \
-  EVENT_ABI_LIBVERSION_CURRENT \
-  EVENT_ABI_LIBVERSION_REVISION \
-  EVENT_ABI_LIBVERSION_AGE \
-  EVENT_PACKAGE_RELEASE
-
-for var : $event_config_vars
-{
-  re_var = $regex.replace($re_config_vars, "PLACEHOLDER", $var)
-  lines = $process.run_regex(cat $src_base/CMakeLists.txt, "$re_var")
-  val = $regex.merge($lines, $re_var, '\2', '', format_first_only format_no_copy)
-  results += "$var = $val"
-  # bring it in to scope (will expand to actual variable name)
-  $var = $val
-}
-
-# for res : $results
-# {
-#   print $res
-# }
-
-# https://github.com/libevent/libevent/blob/5df3037d10556bfcb675bc73e516978b75fc7bc7/CMakeLists.txt#L68-L94
-EVENT_VERSION_MAJOR = $EVENT_GIT___VERSION_MAJOR
-EVENT_VERSION_MINOR = $EVENT_GIT___VERSION_MINOR
-EVENT_VERSION_PATCH = $EVENT_GIT___VERSION_PATCH
-EVENT_VERSION_STAGE = $EVENT_GIT___VERSION_STAGE
-EVENT_VERSION = $EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH-$EVENT_STAGE_NAME
-
-EVENT_ABI_MAJOR = $EVENT_VERSION_MAJOR
-EVENT_ABI_MINOR = $EVENT_VERSION_MINOR
-EVENT_ABI_PATCH = $EVENT_VERSION_PATCH
-
-EVENT_ABI_LIBVERSION = "$EVENT_ABI_MAJOR.$EVENT_ABI_MINOR.$EVENT_ABI_PATCH"
-EVENT_PACKAGE_VERSION = "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
-
-h{event2/event-config}: in{event2/event-config.h.cmake}
+# Public configuration header.
+#
+# See the template file for variable documentation.
+#
+# @@ TODO Revert to a symlink to the upstream event-config.h.cmake once all of
+#    the issues have been resolved (see our edits; the plan is to report them
+#    all).
+#
+include/event2/h{event-config}: include/event2/in{event-config.h.cmake}
 {
   autoconf.prefix="EVENT__"
-  EVENT__DISABLE_DEBUG_MODE = 1
-  EVENT__ENABLE_VERBOSE_DEBUG = 1
-  EVENT__DISABLE_MM_REPLACEMENT = 1
-  EVENT__DISABLE_THREAD_SUPPORT = 1
-  EVENT__DISABLE_OPENSSL = 1
-  EVENT__DISABLE_BENCHMARK = 1
-  EVENT__DISABLE_TESTS = 1
-  EVENT__DISABLE_REGRESS = 1
-  EVENT__DISABLE_SAMPLES = 1
-  EVENT__COVERAGE = 0
+
+  autoconf.aliases  = EVENT__HAVE_PTHREADS@EVENT__HAVE_PTHREAD
+  autoconf.aliases += EVENT__ssize_t@ssize_t
+  autoconf.aliases += EVENT__inline@inline
+  autoconf.aliases += EVENT__socklen_t@socklen_t
+
+  EVENT_VERSION_MAJOR = "$version.major"
+  EVENT_VERSION_MINOR = "$version.minor"
+  EVENT_VERSION_PATCH = "$version.patch"
+  EVENT_PACKAGE_VERSION = \
+    "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH"
+
+  # Stage will presumably always be `stable` but if not then it needs to match
+  # the last component of the upstream git tag.
+  #
+  EVENT_VERSION_STAGE = 'stable'
+
+  EVENT_VERSION = \
+    "$EVENT_VERSION_MAJOR.$EVENT_VERSION_MINOR.$EVENT_VERSION_PATCH-$EVENT_VERSION_STAGE"
+
+  # Dependencies.
+  #
+  EVENT__HAVE_LIBZ    = 0 # Only used in upstream tests.
+  EVENT__HAVE_OPENSSL = 1 # Use build2-packaged OpenSSL.
+
+  # Build customization.
+  #
+  EVENT__DISABLE_DEBUG_MODE = (!$config.libevent.debug)
+  EVENT__DISABLE_MM_REPLACEMENT = 0
+  EVENT__DISABLE_THREAD_SUPPORT = 0
+
+  # Upstream sets this to 1 if kqueue works with pipes. As far as I can tell
+  # kqueue has supported pipes since the beginning and the upstream test
+  # (upstream/cmake/CheckWorkingKqueue.cmake) is very basic so assume it would
+  # fail only on obscure platforms.
+  #
+  # Note that this variable affects code at the kqueue call sites. The actual
+  # kqueue implementation in kqueue.c is wrapped in EVENT__HAVE_KQUEUE (which
+  # is handled by libbuild2-autoconf).
+  #
+  EVENT__HAVE_WORKING_KQUEUE = ($bsd || $macos)
+
+  # System checks.
+  #
+  EVENT__HAVE_EVENT_PORTS = 0 # Solaris only.
+
+  # @@ TMP Unused, but may want to add to libbuild2-autoconf.
+  #
+  # EVENT__size_t =  # Autoconf already has SIZEOF_SIZE_T.h
+  # EVENT__SIZEOF_SSIZE_T = 0 # Autoconf already has ssize_t.h
+  # EVENT__SIZEOF_SOCKLEN_T = 0 # Autoconf already has socklen_t.h
+  # EVENT__HAVE_STRING_H = 0 # Autoconf already has this for many stdlib headers
+  # EVENT__HAVE_SYS_EPOLL_H = 0 # Autoconf already has multiple epoll checks
+  # EVENT__HAVE_EPOLL_CTL = 0
+  # EVENT__HAVE_POLL_H = 0
+  # EVENT__HAVE_MEMORY_H = 0
 }
 
-# h{evconfig-private.h}: in{evconfig-private.h.cmake}
+# Private configuration header.
+#
+# See the template file for variable documentation.
+#
+include/h{evconfig-private}: include/in{evconfig-private.h.cmake}
+{
+  # @@ TODO Remove this definition or the one in c.poptions after
+  #    https://github.com/libevent/libevent/issues/1333 has been resolved.
+  #
+  autoconf.substitutions  = _GNU_SOURCE@($glibc ? 1 : 0)
 
-# event_core
-./: lib{event_core}: {h c}{include/** src_core/*}
-lib{event_core}: c{src_core/win/*}: include = ($c.target.class == 'windows')
+  # @@ TODO Remove this once https://github.com/libevent/libevent/issues/1329
+  #    has been resolved (and also remove it from evconfig-private.h.cmake).
+  #
+  autoconf.substitutions += _FILE_OFFSET_BITS@0	# UNUSED BY UPSTREAM
 
-#event extra
-lib{event_extra}: {h c}{include/** src_extra/*}
-
-# event_openssl
-# ...
-# event_threads
-# ...
-
-./: lib{event}: {h c}{* include/**} $impl_libs $intf_libs lib{event_core} lib{event_extra}
-
-#h{version}: in{version} $src_root/manifest
-
-h{export}@./: c.importable = false
+  # @@ TODO The upstream build left _POSIX_SOURCE undefined on Linux. It also
+  #    looks to have been superceded by _POSIX_C_SOURCE (TODO: file bug
+  #    upstream).
+  #
+  autoconf.substitutions += _POSIX_SOURCE@0
+  autoconf.substitutions += __EXT_POSIX2@0             # QNX only.
+  autoconf.substitutions += _ALL_SOURCE@0              # AIX 3, Interix only.
+  autoconf.substitutions += _LARGE_FILES@0             # AIX only.
+  autoconf.substitutions += _POSIX_PTHREAD_SEMANTICS@0 # Solaris only.
+  autoconf.substitutions += __EXTENSIONS__@0           # Solaris only.
+  autoconf.substitutions += _TANDEM_SOURCE@0           # HP NonStop only.
+  autoconf.substitutions += _MINIX@0                   # MINIX-only.
+  autoconf.substitutions += _POSIX_1_SOURCE@0          # Apparently MINIX-only.
+}
 
 # Build options.
 #
-c.poptions =+ "-I$out_root/libevent" "-I$src_base/include" "-I$src_base/include_internal"
+c.poptions =+ "-I$out_base/include" "-I$src_base/include" \
+                                    "-I$src_base/compat"
 
-# evconfig_internal_defines = \
-#   -D_ALL_SOURCE=0 \
-#   -D_GNU_SOURCE=0 \
-#   -D_POSIX_PTHREAD_SEMANTICS=0 \
-#   -D_TANDEM_SOURCE=0 \
-#   -D__EXTENSIONS_=0\
-#   -D_FILE_OFFSET_BITS=0 \
-#   -D_LARGE_FILES=0 \
-#   -D_MINIX=0 \
-#   -D_POSIX_1_SOURCE=0 \
-#   -D_POSIX_SOURCE=0 \
-#   -D__EXT_POSIX2=0
+c.poptions += -DHAVE_CONFIG_H
 
-# c.coptions+=$evconfig_internal_defines
-
-switch $c.target.class
+if $glibc
 {
+  # @@ TODO Remove this definition or the one in evconfig-private.h after
+  #    https://github.com/libevent/libevent/issues/1333 has been resolved.
+  #
+  c.poptions += -D_GNU_SOURCE=1
+}
+elif $windows
+{
+  c.poptions =+ "-I$src_base/WIN32-Code"
+  c.poptions += -D_CRT_SECURE_NO_WARNINGS \
+                -D_CRT_NONSTDC_NO_DEPRECATE
+}
+
+if ($c.class == 'gcc')
+  c.coptions += -fvisibility=hidden
+
+objs{$src_core $src_core_linux}: c.poptions += -Devent_core_shared_EXPORTS
+objs{$src_extra}:                c.poptions += -Devent_extra_shared_EXPORTS
+objs{$src_openssl}:              c.poptions += -Devent_openssl_shared_EXPORTS
+objs{$src_pthreads}:             c.poptions += -Devent_pthreads_shared_EXPORTS
+
+lib{event_pthreads}: c.libs += -pthread
+
+switch $c.target.class, $c.target.system
+{
+  case 'windows', 'mingw32'
+    c.libs += -lws2_32 -lshell32 -ladvapi32 -liphlpapi
   case 'windows'
-  {
-    win_defines = \
-      -Devent_shared_EXPORTS            \
-      -Devent_extra_shared_EXPORTS      \
-      -Devent_core_shared_EXPORTS
-    c.libs += iphlpapi
-    {hbmis objs}{*}: c.poptions += $win_defines
-  }
+    c.libs += ws2_32.lib shell32.lib advapi32.lib iphlpapi.lib
 }
 
 # Export options.
 #
-lib{event}:
-{
-  c.export.poptions = "-I$out_root" "-I$src_root"
-  c.export.libs = $intf_libs # ws2_32 shell32 advapi32
-}
-
-liba{event}: c.export.poptions += -DLIBEVENT_STATIC
-libs{event}: c.export.poptions += -DLIBEVENT_SHARED
+lib{event_core}: c.export.poptions = "-I$out_base/include" "-I$src_base/include"
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version. See the version module
 # for details on the version.* variable values.
 #
 if $version.pre_release
-  lib{event}: bin.lib.version = "-$version.project_id"
+  lib{event_core event_extra event_openssl event_pthreads}: \
+    bin.lib.version = "-$version.project_id"
 else
-  lib{event}: bin.lib.version = "-$version.major.$version.minor"
+  lib{event_core event_extra event_openssl event_pthreads}: \
+    bin.lib.version = "-$version.major.$version.minor"
 
-# Install into the libevent/ subdirectory of, say, /usr/include/
-# recreating subdirectories.
+# Don't install private headers.
 #
-{h}{*}:
+h{*-internal compat/* WIN32-Code/* include/evconfig-private}: install = false
+h{openssl-compat}@./: install = false
+
+# Install the public headers into, say, /usr/include, recreating
+# subdirectories.
+#
+include/
 {
-  install         = include/libevent/
+  h{*}: install = include/
   install.subdirs = true
 }
