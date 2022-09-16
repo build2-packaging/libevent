@@ -1,5 +1,8 @@
-import openssl_libs  = libssl%lib{ssl}
-import openssl_libs += libcrypto%lib{crypto}
+if $config.libevent.openssl
+{
+  import openssl_libs  = libssl%lib{ssl}
+  import openssl_libs += libcrypto%lib{crypto}
+}
 
 linux   = ($c.target.class  == 'linux')
 bsd     = ($c.target.class  == 'bsd')
