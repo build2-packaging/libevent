@@ -18,5 +18,5 @@
 #
 #*.png binary
 
-libevent/include symlink=dir
-libevent/include_internal/sys symlink=dir
+libevent/WIN32-Code symlink=dir
+libevent/compat symlink=dir
