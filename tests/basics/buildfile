@@ -6,10 +6,7 @@ if $($lib_core: libevent.extra)
   import lib_extra = libevent%lib{event_extra}
 
 if $($lib_core: libevent.openssl)
-{
-  import libs_openssl  = libevent%lib{event_openssl}
-  import libs_openssl += libssl%lib{ssl}
-}
+  import lib_openssl = libevent%lib{event_openssl}
 
 if $($lib_core: libevent.pthreads)
   import lib_pthreads = libevent%lib{event_pthreads}
@@ -20,6 +17,6 @@ if $($lib_core: libevent.pthreads)
 ./: exe{driver-pthreads}: include = $($lib_core: libevent.pthreads)
 
 exe{driver-core}:     c{driver-core}     $lib_core
-exe{driver-extra}:    c{driver-extra}    $lib_core $lib_extra
-exe{driver-openssl}:  c{driver-openssl}  $lib_core $libs_openssl
-exe{driver-pthreads}: c{driver-pthreads} $lib_core $lib_pthreads
+exe{driver-extra}:    c{driver-extra}    $lib_extra
+exe{driver-openssl}:  c{driver-openssl}  $lib_openssl
+exe{driver-pthreads}: c{driver-pthreads} $lib_pthreads

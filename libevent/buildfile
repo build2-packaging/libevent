@@ -1,7 +1,7 @@
 if $config.libevent.openssl
 {
-  import openssl_libs  = libssl%lib{ssl}
-  import openssl_libs += libcrypto%lib{crypto}
+  import openssl_intf_libs = libssl%lib{ssl}
+  import openssl_impl_libs = libcrypto%lib{crypto}
 }
 
 linux   = ($c.target.class  == 'linux')
@@ -157,9 +157,10 @@ lib{event_core}: c{$src_core_win}:   include = $windows
 #
 lib{event_core}: c{devpoll evport}: include = false
 
-lib{event_extra}:    c{$src_extra}    lib{event_core}
+lib{event_extra}: c{$src_extra} lib{event_core}
 
-lib{event_openssl}:  c{$src_openssl}  lib{event_core} $openssl_libs
+lib{event_openssl}: c{$src_openssl}  \
+                    lib{event_core} $openssl_impl_libs $openssl_intf_libs
 
 lib{event_pthreads}: c{$src_pthreads} lib{event_core}
 
@@ -316,6 +317,10 @@ switch $c.target.class, $c.target.system
 # Export options.
 #
 lib{event_core}: c.export.poptions = "-I$out_base/include" "-I$src_base/include"
+
+lib{event_extra event_openssl event_pthreads}: c.export.libs = lib{event_core}
+
+lib{event_openssl}: c.export.libs += $openssl_intf_libs
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version. See the version module
