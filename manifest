@@ -7,6 +7,7 @@ description-file: README.md
 changes-file: ChangeLog
 changes-file: ChangeLog-2.0
 changes-file: ChangeLog-1.4
+changes-type: text/plain
 url: https://libevent.org
 src-url: https://github.com/libevent/libevent
 package-url: https://github.com/build2-packaging/libevent
