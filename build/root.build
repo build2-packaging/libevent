@@ -16,6 +16,6 @@ config [bool] config.libevent.debug ?= false
 # If these variables are true, enable the corresponding library (and its
 # dependencies).
 #
-config [bool] config.libevent.extra    ?= true
-config [bool] config.libevent.openssl  ?= true
-config [bool] config.libevent.pthreads ?= true
+config [bool] config.libevent.extra    ?= false
+config [bool] config.libevent.openssl  ?= false
+config [bool] config.libevent.pthreads ?= false
