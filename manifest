@@ -4,6 +4,7 @@ version: 2.1.12-a.0.z
 summary: Event notification C library
 license: BSD-3-Clause AND BSD-2-Clause AND MIT
 description-file: README.md
+package-description-file: PACKAGE-README.md
 changes-file: ChangeLog
 changes-file: ChangeLog-2.0
 changes-file: ChangeLog-1.4
