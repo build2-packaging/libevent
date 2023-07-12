@@ -13,8 +13,8 @@ src-url: https://github.com/libevent/libevent
 package-url: https://github.com/build2-packaging/libevent
 package-email: packaging@build2.org ; Mailing list.
 build-error-email: builds@build2.org
-depends: * build2 >= 0.16.0-
-depends: * bpkg >= 0.16.0-
+depends: * build2 >= 0.16.0
+depends: * bpkg >= 0.16.0
 depends: libssl >= 1.1.1 ? ($config.libevent.openssl)
 depends: libcrypto >= 1.1.1 ? ($config.libevent.openssl)
 
