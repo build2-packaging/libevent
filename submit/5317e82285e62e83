@@ -1,0 +1,5 @@
+: 1
+name: libevent
+version: 2.1.12+1
+summary: Event notification C library
+license: BSD-3-Clause AND BSD-2-Clause AND MIT
